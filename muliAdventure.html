@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>muliAdventure!!</title>
+    <script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport" />
+    <script src="./sounds.js"></script>
+</head>
+
+<body>
+    <div style="width: 100%;">
+        <div style="margin:0 auto;display: table;">
+            <div id="panel"
+                style="width: 10em;height: 10em;background-color: white;border-style: solid;position: absolute;margin-left: -5em;margin-top: 5em;z-index: 99;display: none;">
+
+                <p id="text" style="color:red"></p>
+                <p id="score"></p>
+                <td><button onclick="keynum=82">重来!</button></td>
+                <img id="lisePic" style="width: 3em;">
+            </div>
+            <div id="panel-pause"
+                style="width: 10em;height: 10em;background-color: white;border-style: solid;position: absolute;margin-left: -5em;margin-top: 5em;z-index: 99;">
+                <p id="text">暂停中</p>
+                <td><button onclick="keynum=84">继续</button></td>
+            </div>
+        </div>
+        <table id="map" cellspacing="0">
+        </table>
+        <div id="virtual-keys">
+            <table>
+                <tr>
+                    <td><button onclick="keynum=65" class="directions">LEFT</button></td>
+                    <td>
+                        <table>
+                            <tr>
+                                <td><button onclick="keynum=87" class="directions">UP</button></td>
+                            </tr>
+                            <tr>
+                                <td><button onclick="keynum=83" class="directions">DOWN</button></td>
+                            </tr>
+                        </table>
+                    </td>
+                    <td><button onclick="keynum=68" class="directions">RIGHT</button></td>
+
+                </tr>
+            </table>
+            <table style="margin-top: 1em;">
+                <tr>
+                    <td><button onclick="keynum=84" class="space">START/STOP</button></td>
+                    <td><button onclick="keynum=82">RESTART</button></td>
+                </tr>
+            </table>
+        </div>
+        <div>
+            <p>按"T"开始/暂停，&nbsp;"WASD"控制方向，也可以用屏幕上的按钮控制。点击restart重玩</p><br>
+
+            <button onclick="if(sound==false)sound=true;else sound=false" hidefocus="true">sound</button>
+            <p id="soundStatus">Sound: off</p>
+            <p id="score"></p>
+            <audio id="sound"></audio>
+            <audio id="eat"></audio>
+            <p style="color: red;">音量注意，音效默认开启<br>
+                请自行开启背景音乐↓<br></p>
+
+            <audio loop id="music" controls></audio>
+            <br>
+            <p>欢迎跟我留言交流^ ^<a href="http://39.102.53.204">点这里</a></p>
+        </div>
+    </div>
+    <script>
+        //位置类
+        class pos {
+            x;
+            y;
+        }
+        var allt;
+        //食物
+        var food = new pos;
+        //猫猫本体
+        var cat = new Array();
+        //得分
+        var score = 0;
+        //游戏状态
+        var gameover = false;
+        var pause = true;
+        //移动状态: 上、下、左、右
+        var status = 'right';
+        
+        //键盘值
+        var keynum;
+        
+        //是否吃到
+        var eat = false;
+        //var music = false;
+        var sound = true;
+        window.onload = function () {
+            $("#music").attr("src", music);
+            $("#lisePic").attr("src",losePic);
+            //键盘事件
+            window.onkeydown = function (e) {
+                keynum = e.keyCode;
+                console.log(e.keyCode);
+            };
+            /*
+            function start() {
+                createMap();
+                createCat();
+                exceed = setInterval(createFood, 1000);
+                draw();
+            }
+            */
+            //初始化游戏
+            initGame();
+            allt = setInterval(function () {
+                if (gameover == false)
+                    soundControl();
+                //游戏暂停
+                if (keynum == 84 && pause == false) {
+                    $("#panel-pause").css("display","block");
+                    pause = true;
+                    keynum = 0;
+                }
+                //游戏开始
+                else if (keynum == 84 && pause == true) {
+                    $("#panel-pause").css("display","none");
+                    pause = false;
+                    keynum = 0;
+                }
+                //重玩游戏
+                if (keynum == 82) {
+                    gameover = false;
+                    keynum = 0;
+                    initGame();
+                    //location.reload();
+                }
+                if (pause == false && gameover == false) {
+                    catMove();
+                    draw();
+                }
+            }, speed);
+            function setKey(num) {
+                keynum = num;
+            }
+            //创建猫猫
+            function createCat() {
+                var part;
+                //猫猫初始位置,i为猫猫初始长度
+                var x = 4;
+                var y = 3;
+                for (var i = 0; i < 3; i++) {
+                    part = new pos;
+                    part.x = x;
+                    part.y = y;
+                    cat.unshift(part);
+                    y++;
+                }
+                console.log(cat);
+            }
+            //初始化游戏
+            function initGame() {
+                pause = true;
+                score = 0;
+                var map = document.getElementById("map");
+                map.innerHTML = "";
+                cat.splice(0, cat.length);
+                status = 'right';
+                $("#panel").css("display", "none");
+                document.getElementById("text").innerText = "";
+                createMap();
+                createCat();
+                createFood();
+                draw();
+            }
+            //猫猫移动
+            function catMove() {
+                //上
+                if (keynum == 87 || keynum == 38) {
+                    if (status != 'down')
+                        status = 'up';
+                }
+                //下
+                else if (keynum == 83 || keynum == 40) {
+                    if (status != 'up')
+                        status = 'down';
+                }
+                //左
+                else if (keynum == 65 || keynum == 37) {
+                    if (status != 'right')
+                        status = 'left';
+                }
+                //右
+                else if (keynum == 68 || keynum == 39) {
+                    if (status != 'left')
+                        status = 'right';
+                }
+                var part = new pos;
+                switch (status) {
+                    case 'up':
+                        part.x = cat[0].x - 1;
+                        part.y = cat[0].y;
+                        break;
+                    case 'down':
+                        part.x = cat[0].x + 1;
+                        part.y = cat[0].y;
+                        break;
+                    case 'left':
+                        part.x = cat[0].x;
+                        part.y = cat[0].y - 1;
+                        break;
+                    case 'right':
+                        part.x = cat[0].x;
+                        part.y = cat[0].y + 1;
+                        break;
+                }
+                cat.unshift(part);
+                //吃到食物的情况
+                if (cat[0].x == food.x && cat[0].y == food.y) {
+                    score++;
+                    eat = true;
+                    createFood();
+                }
+                else {
+                    //尾巴向前
+                    cat.pop();
+                }
+                check();
+                return 0;
+            }
+
+            //创建地图
+            function createMap() {
+                var map = document.getElementById("map");
+                var row;
+                var col;
+                for (var i = 0; i < rowCount; i++) {
+                    row = document.createElement("tr");
+                    for (var j = 0; j < colCount; j++) {
+                        col = document.createElement("td");
+                        col.setAttribute("id", "x" + i + "y" + j);
+                        row.appendChild(col);
+                    }
+                    map.appendChild(row);
+                }
+                //createFood();
+            }
+
+            //生成食物
+            function createFood() {
+                //是否和猫重合
+                var flag = true;
+                while (flag) {
+                    flag = false;
+                    food.x = Math.floor(Math.random() * rowCount);
+                    food.y = Math.floor(Math.random() * colCount);
+                    for (var i = 0; i < cat.length; i++) {
+                        if (food.x == cat[i].x && food.y == cat[i].y) {
+                            flag = true;
+                        }
+                    }
+                }
+
+            }
+
+            //检查游戏是否结束
+            function check() {
+                for (var i = 0; i < cat.length; i++) {
+                    //是否撞到边界
+                    if (cat[i].x == rowCount || cat[i].x < 0 || cat[i].y == colCount || cat[i].y < 0) {
+                        endGame();
+                        return;
+                    }
+                    for (var j = i + 1; j < cat.length; j++) {
+                        //是否撞到自己
+                        if (cat[i].x == cat[j].x && cat[i].y == cat[j].y) {
+                            endGame();
+                            return;
+                        }
+                    }
+                }
+            }
+
+            //结束游戏
+            function endGame() {
+                $("#panel").css("display", "block");
+                gameover = true;
+                document.getElementById("text").innerText = loseText;
+                //clearInterval(allt);
+            }
+            //开启/关闭声音
+            function soundControl() {
+                var musicNode = $("#music");
+                var soundNode = $("#sound");
+                var eatNode = $("#eat");
+
+                if (sound == true) {
+                    //musicNode[0].play();
+                    document.getElementById("soundStatus").innerText = "Sounds: on";
+                }
+                else {
+                    //musicNode[0].pause();
+                    document.getElementById("soundStatus").innerText = "Sounds: off";
+                }
+                if (gameover == true && sound == true) {
+                    soundNode.attr('src', soundList[Math.floor(soundList.length * Math.random())]);
+                    soundNode[0].play();
+                    //musicNode[0].pause();
+                }
+                if (eat == true && sound == true) {
+                    eatNode.attr('src', eatList[Math.floor(eatList.length * Math.random())]);
+                    eatNode[0].play();
+                }
+            }
+            //绘制图形
+            function draw() {
+                if (gameover == true) {
+                    soundControl();
+                    return;
+                }
+                if (eat == true) {
+                    soundControl();
+                    eat = false;
+                }
+                var node;
+                //刷新地图
+                for (var i = 0; i < rowCount; i++) {
+                    for (var j = 0; j < colCount; j++) {
+                        node = document.getElementById("x" + i + "y" + j);
+                        node.setAttribute("class", "");
+                    }
+                }
+                var scoreNode = document.getElementById("score").innerText = "YOUR SCORE: " + score;
+                //绘制食物
+                var foodNode = document.getElementById("x" + food.x + "y" + food.y);
+                foodNode.setAttribute("class", "food");
+                //绘制猫猫
+                var catNode;
+                for (var i = 1; i < cat.length - 1; i++) {
+                    //猫猫身体
+                    catNode = document.getElementById("x" + cat[i].x + "y" + cat[i].y);
+                    if (cat[i - 1].x == cat[i].x && cat[i].x == cat[i + 1].x && (Math.abs(cat[i - 1].y - cat[i].y) == 1 || Math.abs(cat[i].y - cat[i + 1].y) == 1)) {
+                        catNode.setAttribute("class", "cat-body-right");
+                    }
+                    else if ((cat[i].x + 1 == cat[i - 1].x || cat[i].x + 1 == cat[i + 1].x) && (cat[i].y + 1 == cat[i + 1].y || cat[i].y + 1 == cat[i - 1].y)) {
+                        catNode.setAttribute("class", "cat-body-bend1");
+                    }
+                    else if ((cat[i].x - 1 == cat[i - 1].x || cat[i].x - 1 == cat[i + 1].x) && (cat[i].y + 1 == cat[i + 1].y || cat[i].y + 1 == cat[i - 1].y)) {
+                        catNode.setAttribute("class", "cat-body-bend4");
+                    }
+                    else if ((cat[i].x - 1 == cat[i - 1].x || cat[i].x - 1 == cat[i + 1].x) && (cat[i].y - 1 == cat[i + 1].y || cat[i].y - 1 == cat[i - 1].y)) {
+                        catNode.setAttribute("class", "cat-body-bend3");
+                    }
+                    else if ((cat[i].x + 1 == cat[i - 1].x || cat[i].x + 1 == cat[i + 1].x) && (cat[i].y - 1 == cat[i + 1].y || cat[i].y - 1 == cat[i - 1].y)) {
+                        catNode.setAttribute("class", "cat-body-bend2");
+                    }
+                    else {
+                        catNode.setAttribute("class", "cat-body");
+                    }
+                }
+                //猫猫头
+                catNode = document.getElementById("x" + cat[0].x + "y" + cat[0].y);
+                if (cat[0].y > cat[1].y) {
+                    catNode.setAttribute("class", "cat-head-right");
+                }
+                else if (cat[0].y < cat[1].y) {
+                    catNode.setAttribute("class", "cat-head-left");
+                }
+                else if (cat[0].x < cat[1].x) {
+                    catNode.setAttribute("class", "cat-head");
+                }
+                else if (cat[0].x > cat[1].x) {
+                    catNode.setAttribute("class", "cat-head-down");
+                }
+                //猫猫jo
+                catNode = document.getElementById("x" + cat[cat.length - 1].x + "y" + cat[cat.length - 1].y);
+                if (cat[cat.length - 1].y < cat[cat.length - 2].y) {
+                    catNode.setAttribute("class", "cat-foot-right");
+                }
+                else if (cat[cat.length - 1].y > cat[cat.length - 2].y) {
+                    catNode.setAttribute("class", "cat-foot-left");
+                }
+                else if (cat[cat.length - 1].x > cat[cat.length - 2].x) {
+                    catNode.setAttribute("class", "cat-foot");
+                }
+                else if (cat[cat.length - 1].x < cat[cat.length - 2].x) {
+                    catNode.setAttribute("class", "cat-foot-down");
+                }
+            }
+        }
+
+    </script>
+    <style>
+        #virtual-keys {
+            text-align: center;
+            border-style: solid;
+            display: table;
+            margin: auto;
+        }
+
+        .directions {
+            width: 5em;
+            height: 5em;
+        }
+
+        .space {
+            width: 15em;
+            height: 3em;
+            margin-right: 3em;
+        }
+
+        #map {
+            margin: auto;
+            border-style: solid;
+            background-size: auto 100%;
+            background-image: url('./background.png');
+        }
+
+        #map td {
+            width: 2em;
+            height: 2em;
+        }
+
+        .food {
+            background-size: 100% auto;
+            background-image: url('./food.png');
+        }
+
+        .cat-head {
+            background-size: 100% 100%;
+            background-image: url('./head.png');
+        }
+
+        .cat-head-right {
+            background-size: 100% 100%;
+            background-image: url('./head.png');
+            transform: rotate(90deg);
+        }
+
+        .cat-head-down {
+            background-size: 100% 100%;
+            background-image: url('./head.png');
+            transform: rotate(180deg);
+        }
+
+        .cat-head-left {
+            background-size: 100% 100%;
+            background-image: url('./head.png');
+            transform: rotate(270deg);
+        }
+
+        .cat-body {
+            background-size: 100% auto;
+            background-image: url('./body.png');
+        }
+
+        .cat-body-right {
+            background-size: 100% auto;
+            background-image: url('./body.png');
+            transform: rotate(90deg);
+        }
+
+        .cat-foot {
+            background-size: 100% auto;
+            background-image: url('./foot.png');
+        }
+
+        .cat-foot-right {
+            background-size: 100% auto;
+            background-image: url('./foot.png');
+            transform: rotate(90deg);
+        }
+
+        .cat-foot-down {
+            background-size: 100% auto;
+            background-image: url('./foot.png');
+            transform: rotate(180deg);
+        }
+
+        .cat-foot-left {
+            background-size: 100% auto;
+            background-image: url('./foot.png');
+            transform: rotate(270deg);
+        }
+
+        .cat-body-bend1 {
+            background-size: 100% auto;
+            background-image: url('./bend.png');
+        }
+
+        .cat-body-bend2 {
+            background-size: 100% auto;
+            background-image: url('./bend.png');
+            transform: rotate(90deg);
+        }
+
+        .cat-body-bend3 {
+            background-size: 100% auto;
+            background-image: url('./bend.png');
+            transform: rotate(180deg);
+        }
+
+        .cat-body-bend4 {
+            background-size: 100% auto;
+            background-image: url('./bend.png');
+            transform: rotate(270deg);
+        }
+    </style>
+</body>
+
+</html>
